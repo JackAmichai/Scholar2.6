@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2 } from 'lucide-react';
+import { X, Send, Loader2, Download, Mic, MicOff, Moon, Sun, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useResearchAgent } from '../hooks/useResearchAgent';
+import { useTheme } from '../context/ThemeContext';
+import { VoiceRecognition } from '../utils/voiceRecognition';
+import { exportChatToMarkdown, exportChatToJSON, downloadFile } from '../utils/exportUtils';
 import type { GraphData } from '../types';
 
 interface ChatOverlayProps {
@@ -8,9 +12,29 @@ interface ChatOverlayProps {
     onClose: () => void;
 }
 
+// Smart research topic suggestions
+const researchSuggestions = [
+    'Computer Vision',
+    'Natural Language Processing',
+    'Reinforcement Learning',
+    'Graph Neural Networks',
+    'Quantum Computing',
+    'Federated Learning',
+    'Transformer Architecture',
+    'Few-Shot Learning',
+    'Explainable AI',
+    'Edge Computing'
+];
+
 export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClose }) => {
+    const { t, i18n } = useTranslation();
+    const { theme, toggleTheme } = useTheme();
     const [input, setInput] = useState('');
+    const [isListening, setIsListening] = useState(false);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const voiceRecognitionRef = useRef<VoiceRecognition>(new VoiceRecognition());
 
     const { messages, sendMessage, isThinking } = useResearchAgent(onResearchReady);
 
@@ -22,10 +46,42 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
         scrollToBottom();
     }, [messages]);
 
+    useEffect(() => {
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            chrome.storage.local.get(['chatHistory'], () => {
+                // Could restore previous conversations if needed
+            });
+        }
+    }, []);
+
+    // Save chat history
+    useEffect(() => {
+        if (messages.length > 1) {
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                chrome.storage.local.set({ chatHistory: messages });
+            } else {
+                localStorage.setItem('scholar-chat-history', JSON.stringify(messages));
+            }
+        }
+    }, [messages]);
+
+    // Smart suggestions based on input
+    useEffect(() => {
+        if (input.length > 2) {
+            const filtered = researchSuggestions.filter(s =>
+                s.toLowerCase().includes(input.toLowerCase())
+            ).slice(0, 3);
+            setSuggestions(filtered);
+        } else {
+            setSuggestions([]);
+        }
+    }, [input]);
+
     const handleSend = () => {
         if (input.trim() && !isThinking) {
             sendMessage(input);
             setInput('');
+            setSuggestions([]);
         }
     };
 
@@ -36,24 +92,116 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
         }
     };
 
+    const handleSuggestionClick = (suggestion: string) => {
+        setInput(suggestion);
+        setSuggestions([]);
+    };
+
+    // Voice input
+    const handleVoiceInput = () => {
+        if (!voiceRecognitionRef.current.isSupported()) {
+            alert('Voice recognition not supported in your browser');
+            return;
+        }
+
+        if (isListening) {
+            voiceRecognitionRef.current.stop();
+            setIsListening(false);
+        } else {
+            setIsListening(true);
+            voiceRecognitionRef.current.start(
+                (transcript) => {
+                    setInput(transcript);
+                    setIsListening(false);
+                },
+                (error) => {
+                    console.error('Voice recognition error:', error);
+                    setIsListening(false);
+                }
+            );
+        }
+    };
+
+    // Export chat
+    const handleExportMarkdown = () => {
+        const markdown = exportChatToMarkdown(messages);
+        downloadFile(markdown, 'scholar-chat.md', 'text/markdown');
+        setShowExportMenu(false);
+    };
+
+    const handleExportJSON = () => {
+        const json = exportChatToJSON(messages);
+        downloadFile(json, 'scholar-chat.json', 'application/json');
+        setShowExportMenu(false);
+    };
+
+    // Language switcher
+    const cycleLanguage = () => {
+        const languages = ['en', 'es', 'zh'];
+        const currentIndex = languages.indexOf(i18n.language);
+        const nextIndex = (currentIndex + 1) % languages.length;
+        i18n.changeLanguage(languages[nextIndex]);
+    };
+
     return (
-        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden z-50">
+        <div className={`fixed bottom-6 right-6 w-96 h-[600px] ${theme === 'dark' ? 'bg-slate-800' : 'bg-white'} rounded-lg shadow-2xl flex flex-col overflow-hidden z-50 border ${theme === 'dark' ? 'border-slate-700' : 'border-gray-200'}`}>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 text-white flex items-center justify-between">
                 <div>
-                    <h3 className="font-bold text-lg">Scholar 2.6</h3>
-                    <p className="text-xs opacity-90">AI Research Navigator</p>
+                    <h3 className="font-bold text-lg">{t('chat.title')}</h3>
+                    <p className="text-xs opacity-90">{t('chat.subtitle')}</p>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="hover:bg-white/20 p-1 rounded transition"
-                >
-                    <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={cycleLanguage}
+                        className="hover:bg-white/20 p-1.5 rounded transition"
+                        title="Change language"
+                    >
+                        <Globe size={18} />
+                    </button>
+                    <button
+                        onClick={toggleTheme}
+                        className="hover:bg-white/20 p-1.5 rounded transition"
+                        title={t('action.theme')}
+                    >
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="hover:bg-white/20 p-1.5 rounded transition"
+                            title={t('action.export')}
+                        >
+                            <Download size={18} />
+                        </button>
+                        {showExportMenu && (
+                            <div className={`absolute right-0 top-full mt-2 ${theme === 'dark' ? 'bg-slate-700' : 'bg-white'} rounded-lg shadow-xl py-2 min-w-[150px] z-10`}>
+                                <button
+                                    onClick={handleExportMarkdown}
+                                    className={`w-full text-left px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
+                                >
+                                    Export as Markdown
+                                </button>
+                                <button
+                                    onClick={handleExportJSON}
+                                    className={`w-full text-left px-4 py-2 text-sm ${theme === 'dark' ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
+                                >
+                                    Export as JSON
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="hover:bg-white/20 p-1.5 rounded transition"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${theme === 'dark' ? 'bg-slate-900' : 'bg-gray-50'}`}>
                 {messages.map((msg, idx) => (
                     <div
                         key={idx}
@@ -62,7 +210,9 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
                         <div
                             className={`max-w-[80%] p-3 rounded-lg ${msg.role === 'user'
                                 ? 'bg-blue-600 text-white'
-                                : 'bg-white text-gray-800 shadow-sm'
+                                : theme === 'dark'
+                                    ? 'bg-slate-800 text-white shadow-sm'
+                                    : 'bg-white text-gray-800 shadow-sm'
                                 }`}
                         >
                             {msg.content}
@@ -72,9 +222,9 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
 
                 {isThinking && (
                     <div className="flex justify-start">
-                        <div className="bg-white p-3 rounded-lg shadow-sm flex items-center gap-2">
+                        <div className={`${theme === 'dark' ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'} p-3 rounded-lg shadow-sm flex items-center gap-2`}>
                             <Loader2 size={16} className="animate-spin" />
-                            <span className="text-sm text-gray-600">Thinking...</span>
+                            <span className="text-sm">{t('chat.thinking')}</span>
                         </div>
                     </div>
                 )}
@@ -82,16 +232,52 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
                 <div ref={messagesEndRef} />
             </div>
 
+            {/* Suggestions */}
+            {suggestions.length > 0 && (
+                <div className={`px-4 py-2 ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} border-t`}>
+                    <div className="flex flex-wrap gap-2">
+                        {suggestions.map((suggestion, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => handleSuggestionClick(suggestion)}
+                                className={`px-3 py-1 text-xs rounded-full ${theme === 'dark'
+                                    ? 'bg-slate-700 text-white hover:bg-slate-600'
+                                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                    } transition`}
+                            >
+                                {suggestion}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Input */}
-            <div className="p-4 bg-white border-t border-gray-200">
+            <div className={`p-4 ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'} border-t`}>
                 <div className="flex gap-2">
+                    <button
+                        onClick={handleVoiceInput}
+                        disabled={isThinking}
+                        className={`p-2 rounded-lg transition ${isListening
+                            ? 'bg-red-600 text-white'
+                            : theme === 'dark'
+                                ? 'bg-slate-700 text-white hover:bg-slate-600'
+                                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                            } disabled:opacity-50`}
+                        title={t('action.voice')}
+                    >
+                        {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                    </button>
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Type your response..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={t('chat.placeholder')}
+                        className={`flex-1 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${theme === 'dark'
+                            ? 'bg-slate-700 text-white placeholder-gray-400 border-slate-600'
+                            : 'bg-gray-100 text-gray-900 placeholder-gray-500 border-gray-300'
+                            } border`}
                         disabled={isThinking}
                     />
                     <button

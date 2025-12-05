@@ -1,5 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import '../i18n/config'; // Initialize i18n
+import { ThemeProvider } from '../context/ThemeContext';
 import App from './App';
 import styles from './index.css?inline';
 
@@ -36,11 +38,13 @@ rootContainer.id = 'root';
 rootContainer.style.pointerEvents = 'auto'; // Enable clicks on our UI
 shadow.appendChild(rootContainer);
 
-// 5. Mount React
+// 5. Mount React with Theme and i18n providers
 const root = createRoot(rootContainer);
 root.render(
     <React.StrictMode>
-        <App />
+        <ThemeProvider>
+            <App />
+        </ThemeProvider>
     </React.StrictMode>
 );
 
