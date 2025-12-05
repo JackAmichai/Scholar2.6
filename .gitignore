@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+scholar-2.6-edge/node_modules
+scholar-2.6-edge/dist
