@@ -32,8 +32,15 @@ export const useResearchAgent = (onComplete: (data: GraphData) => void) => {
         setIsThinking(true);
 
         try {
+            // Fetch keys from storage
+            let userKeys = {};
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                const result = await chrome.storage.local.get(['apiKeys']);
+                userKeys = result.apiKeys || {};
+            }
+
             // Get configured providers (Groq, HF, OpenRouter, Google)
-            const providers = getConfiguredProviders();
+            const providers = getConfiguredProviders(userKeys);
 
             // If no providers configured, use mock response
             if (providers.length === 0) {

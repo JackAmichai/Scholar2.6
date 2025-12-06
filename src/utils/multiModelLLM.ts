@@ -40,6 +40,10 @@ async function callProvider(
             response = await callOpenRouter(provider, messages);
         } else if (provider.name === 'google') {
             response = await callGoogleGemma(provider, messages);
+        } else if (provider.name === 'cohere') {
+            response = await callCohere(provider, messages);
+        } else if (provider.name === 'mistral') {
+            response = await callMistral(provider, messages);
         } else {
             throw new Error(`Unknown provider: ${provider.name}`);
         }
@@ -52,15 +56,17 @@ async function callProvider(
             latency,
             success: true
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         const latency = performance.now() - startTime;
         console.error(`${provider.name} error:`, error);
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         return {
             provider: provider.name,
             content: '',
             latency,
-            error: error.message,
+            error: errorMessage,
             success: false
         };
     }
@@ -195,6 +201,65 @@ async function callGoogleGemma(
 }
 
 /**
+ * Call Cohere API
+ */
+async function callCohere(
+    provider: ModelProvider,
+    messages: Message[]
+): Promise<string> {
+    const lastMessage = messages[messages.length - 1];
+
+    const response = await fetch('https://api.cohere.ai/v1/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${provider.apiKey}`
+        },
+        body: JSON.stringify({
+            model: provider.model,
+            message: lastMessage.content,
+            temperature: 0.7
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Cohere API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.text || '';
+}
+
+/**
+ * Call Mistral API
+ */
+async function callMistral(
+    provider: ModelProvider,
+    messages: Message[]
+): Promise<string> {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${provider.apiKey}`
+        },
+        body: JSON.stringify({
+            model: provider.model,
+            messages: messages,
+            max_tokens: provider.maxTokens,
+            temperature: 0.7
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Mistral API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || '';
+}
+
+/**
  * Call multiple models in parallel
  */
 export async function callMultipleModels(
@@ -244,13 +309,13 @@ export function synthesizeResponses(responses: ModelResponse[]): string {
 }
 
 /**
- * Get configured providers from environment
+ * Get configured providers from environment or user settings
  */
-export function getConfiguredProviders(): ModelProvider[] {
+export function getConfiguredProviders(userKeys: Record<string, string> = {}): ModelProvider[] {
     const providers: ModelProvider[] = [];
 
     // Groq (prioritize for speed)
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+    const groqKey = userKeys.groq || import.meta.env.VITE_GROQ_API_KEY;
     if (groqKey && groqKey !== 'gsk_YOUR_KEY_HERE') {
         providers.push({
             name: 'groq',
@@ -262,7 +327,7 @@ export function getConfiguredProviders(): ModelProvider[] {
     }
 
     // Hugging Face
-    const hfKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+    const hfKey = userKeys.huggingface || import.meta.env.VITE_HUGGINGFACE_API_KEY;
     if (hfKey && hfKey !== 'hf_YOUR_TOKEN_HERE') {
         providers.push({
             name: 'huggingface',
@@ -274,7 +339,7 @@ export function getConfiguredProviders(): ModelProvider[] {
     }
 
     // OpenRouter (fallback)
-    const orKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    const orKey = userKeys.openrouter || import.meta.env.VITE_OPENROUTER_API_KEY;
     if (orKey && orKey !== 'sk-or_YOUR_KEY_HERE') {
         providers.push({
             name: 'openrouter',
@@ -286,13 +351,37 @@ export function getConfiguredProviders(): ModelProvider[] {
     }
 
     // Google Gemma
-    const googleKey = import.meta.env.VITE_GOOGLE_GEMINI_API_KEY;
+    const googleKey = userKeys.google || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY;
     if (googleKey && googleKey !== 'AIza_YOUR_KEY_HERE') {
         providers.push({
             name: 'google',
             endpoint: 'https://generativelanguage.googleapis.com',
             apiKey: googleKey,
             model: 'gemma-2-9b-it',
+            maxTokens: 1024
+        });
+    }
+
+    // Cohere
+    const cohereKey = userKeys.cohere || import.meta.env.VITE_COHERE_API_KEY;
+    if (cohereKey && cohereKey !== 'YOUR_KEY_HERE') {
+        providers.push({
+            name: 'cohere',
+            endpoint: 'https://api.cohere.ai/v1/chat',
+            apiKey: cohereKey,
+            model: 'command-r',
+            maxTokens: 1024
+        });
+    }
+
+    // Mistral
+    const mistralKey = userKeys.mistral || import.meta.env.VITE_MISTRAL_API_KEY;
+    if (mistralKey && mistralKey !== 'YOUR_KEY_HERE') {
+        providers.push({
+            name: 'mistral',
+            endpoint: 'https://api.mistral.ai/v1/chat/completions',
+            apiKey: mistralKey,
+            model: 'mistral-small-latest',
             maxTokens: 1024
         });
     }
