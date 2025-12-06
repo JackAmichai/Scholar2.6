@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
 import manifest from './manifest.json';
+import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -19,7 +20,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        // CRXJS handles content script from manifest
+        // This ensures your landing page is built into dist/landing.html
+        landing: resolve(__dirname, 'landing-page/index.html')
       }
     }
   }
