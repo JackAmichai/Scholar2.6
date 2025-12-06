@@ -22,7 +22,7 @@ export const fetchPapers = async (params: SearchParams): Promise<Paper[]> => {
         const queryParams = new URLSearchParams({
             query: params.query,
             limit: '15',
-            fields: 'paperId,title,year,citationCount,abstract,embedding.specter_v2'
+            fields: 'paperId,title,year,citationCount,abstract,embedding.specter_v2,references.paperId'
         });
 
         if (params.year_start) {

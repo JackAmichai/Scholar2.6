@@ -125,6 +125,24 @@ export const useResearchAgent = (onComplete: (data: GraphData) => void) => {
 
             // Fetch papers
             const papers = await fetchPapers(searchParams);
+
+            // Build initial links based on internal citations
+            const links: { source: string; target: string }[] = [];
+            const paperIds = new Set(papers.map(p => p.paperId));
+
+            papers.forEach(p => {
+                if (p.references) {
+                    p.references.forEach((ref: any) => {
+                        if (paperIds.has(ref.paperId)) {
+                            links.push({
+                                source: p.paperId,
+                                target: ref.paperId
+                            });
+                        }
+                    });
+                }
+            });
+
             const graphData: GraphData = {
                 nodes: papers.map((p: any) => ({
                     ...p,
@@ -132,7 +150,7 @@ export const useResearchAgent = (onComplete: (data: GraphData) => void) => {
                     color: '#F87171',
                     val: Math.log(p.citationCount + 1) * 2
                 })),
-                links: []
+                links: links
             };
 
             onComplete(graphData);

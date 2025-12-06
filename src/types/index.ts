@@ -9,6 +9,7 @@ export interface Paper {
         model: string;
         vector: number[];
     };
+    references?: { paperId: string }[];
 }
 
 export interface PaperNode extends Paper {
