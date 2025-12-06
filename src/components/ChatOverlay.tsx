@@ -237,8 +237,15 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
                         {messages.map((msg, idx) => (
                             <div
                                 key={idx}
-                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start items-end gap-2'}`}
                             >
+                                {msg.role !== 'user' && (
+                                    <img
+                                        src={typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime.getURL('logo.png') : 'logo.png'}
+                                        alt="AI"
+                                        className="w-8 h-8 rounded-full object-cover shadow-sm mb-1"
+                                    />
+                                )}
                                 <div
                                     className={`max-w-[80%] p-3 rounded-lg ${msg.role === 'user'
                                         ? 'bg-blue-600 text-white'
