@@ -56,15 +56,17 @@ async function callProvider(
             latency,
             success: true
         };
-    } catch (error: any) {
+    } catch (error: unknown) {
         const latency = performance.now() - startTime;
         console.error(`${provider.name} error:`, error);
+
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
         return {
             provider: provider.name,
             content: '',
             latency,
-            error: error.message,
+            error: errorMessage,
             success: false
         };
     }

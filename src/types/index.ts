@@ -44,3 +44,7 @@ export interface Message {
     content: string;
     tool_calls?: any[];
 }
+
+// Theme Types
+export type Theme = 'light' | 'dark';
+export type ColorScheme = 'default' | 'ocean' | 'sunset' | 'forest' | 'neon';

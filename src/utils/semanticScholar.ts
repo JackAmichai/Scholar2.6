@@ -2,6 +2,18 @@ import type { Paper, SearchParams } from '../types';
 
 const BASE_URL = 'https://api.semanticscholar.org/graph/v1';
 
+interface ApiResponse {
+    data: Paper[];
+}
+
+interface CitationResponse {
+    data: { citingPaper: Paper }[];
+}
+
+interface ReferenceResponse {
+    data: { citedPaper: Paper }[];
+}
+
 /**
  * Fetch papers from Semantic Scholar API
  */
@@ -23,7 +35,7 @@ export const fetchPapers = async (params: SearchParams): Promise<Paper[]> => {
             throw new Error(`API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as ApiResponse;
         return data.data || [];
     } catch (error) {
         console.error('Semantic Scholar fetch error:', error);
@@ -46,8 +58,8 @@ export const fetchCitations = async (paperId: string): Promise<Paper[]> => {
             throw new Error(`API error: ${response.status}`);
         }
 
-        const data = await response.json();
-        return data.data.map((item: any) => item.citingPaper);
+        const data = await response.json() as CitationResponse;
+        return data.data.map((item) => item.citingPaper);
     } catch (error) {
         console.error('Citations fetch error:', error);
         return [];
@@ -67,8 +79,8 @@ export const fetchReferences = async (paperId: string): Promise<Paper[]> => {
             throw new Error(`API error: ${response.status}`);
         }
 
-        const data = await response.json();
-        return data.data.map((item: any) => item.citedPaper);
+        const data = await response.json() as ReferenceResponse;
+        return data.data.map((item) => item.citedPaper);
     } catch (error) {
         console.error('References fetch error:', error);
         return [];
