@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, Download, Mic, MicOff, Moon, Sun, Globe, Settings, ArrowLeft } from 'lucide-react';
+import { X, Send, Loader2, Download, Mic, MicOff, Moon, Sun, Globe, Settings, ArrowLeft, Coffee } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResearchAgent } from '../hooks/useResearchAgent';
 import { useTheme } from '../context/ThemeContext';
@@ -191,6 +191,15 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({ onResearchReady, onClo
                             >
                                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                             </button>
+                            <a
+                                href="https://buymeacoffee.com/jackami"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:bg-white/20 p-1.5 rounded transition text-white"
+                                title="Buy Me a Coffee"
+                            >
+                                <Coffee size={18} />
+                            </a>
                             <div className="relative">
                                 <button
                                     onClick={() => setShowExportMenu(!showExportMenu)}
